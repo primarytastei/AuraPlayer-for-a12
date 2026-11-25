@@ -173,14 +173,29 @@ private fun AuraShell(model: AuraViewModel, onEnterOobe: () -> Unit = {}) {
     val miniBlurRadius = playerMiniBlurRadius(settings.navigation,
         rememberModuleNavigationMaterial(settings.navigation).blur)
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        permissionDenied = !granted
-        model.refreshLibrary()
+val audioPermission = remember {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
     }
-    val requestPermission: () -> Unit = {
-        if (permissionDenied) context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
-        else permission.launch(Manifest.permission.READ_MEDIA_AUDIO)
+}
+val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    permissionDenied = !granted
+    model.refreshLibrary()
+}
+val requestPermission: () -> Unit = {
+    if (permissionDenied) {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:${context.packageName}")
+            )
+        )
+    } else {
+        permission.launch(audioPermission)
     }
+}
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { model.refreshLibrary() }
     val selected = rememberSaveable { mutableIntStateOf(0) }
     // Pure local mode has no Cloud tab; never stay on it.
