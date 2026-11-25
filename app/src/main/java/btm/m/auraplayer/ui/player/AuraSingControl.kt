@@ -38,7 +38,7 @@ import btm.m.auraplayer.sing.AuraSingTrackState
 import btm.m.auraplayer.ui.tr
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.Backdrop
+import com.kyant.backdrop.Backdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Mic
 import top.yukonga.miuix.kmp.theme.MiuixTheme
