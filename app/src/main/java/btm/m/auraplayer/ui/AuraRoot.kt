@@ -1,10 +1,12 @@
 package btm.m.auraplayer.ui
 
 import android.Manifest
-import android.os.Build
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,12 +74,6 @@ import top.yukonga.miuix.kmp.basic.*
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.*
 import top.yukonga.miuix.kmp.theme.*
-
-private fun libraryAudioPermission(): String =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-        Manifest.permission.READ_MEDIA_AUDIO
-    else
-        Manifest.permission.READ_EXTERNAL_STORAGE
 
 internal val colorPresets = listOf(
     Triple("blue", "澄空蓝", 0xFF6E92D8), Triple("cyan", "清泉青", 0xFF4B9BAA),
@@ -179,19 +175,35 @@ private fun AuraShell(model: AuraViewModel, onEnterOobe: () -> Unit = {}) {
     val settings = model.settings.value
     val miniBlurRadius = playerMiniBlurRadius(settings.navigation,
         rememberModuleNavigationMaterial(settings.navigation).blur)
+    val requiredAudioPermission = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+    }
+    fun isAudioPermissionGranted(): Boolean =
+        ContextCompat.checkSelfPermission(context, requiredAudioPermission) == PackageManager.PERMISSION_GRANTED
+
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         permissionDenied = !granted
         model.refreshLibrary()
     }
     val requestPermission: () -> Unit = {
-        if (permissionDenied) context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
-        else permission.launch(libraryAudioPermission())
+        if (isAudioPermissionGranted()) {
+            permissionDenied = false
+            model.refreshLibrary()
+        } else if (permissionDenied) {
+            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+        } else {
+            permission.launch(requiredAudioPermission)
+        }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        // 复用 LibraryPages 中的 hasLibraryAudioPermission，避免同包重复声明；
-        // 从系统设置/授权弹窗返回时实时复检，已授予则清除误判的 permissionDenied。
-        if (permissionDenied && hasLibraryAudioPermission(context)) permissionDenied = false
+        if (isAudioPermissionGranted()) {
+            permissionDenied = false
+        }
         model.refreshLibrary()
     }
     val selected = rememberSaveable { mutableIntStateOf(0) }
