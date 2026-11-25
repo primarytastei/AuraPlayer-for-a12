@@ -18,13 +18,11 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -69,8 +67,6 @@ import com.kyant.backdrop.highlight.Highlight
 import com.materialkolor.palettes.CorePalette
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.LocalRuntimeShaderCache
-import top.yukonga.miuix.kmp.blur.highlight.Highlight as MiuixHighlight
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
@@ -221,7 +217,7 @@ internal fun computeCoverflowCardTransform(pageOffset: Float): CoverflowCardTran
 internal fun Modifier.playerDockGlassSurface(
     advancedMaterial: Boolean,
     backdrop: Backdrop,
-    miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    miuixBackdrop: Backdrop,
     shape: Shape,
     cornerRadius: Dp,
     menuTint: Color,
@@ -269,7 +265,7 @@ internal fun coverThemeHeaderTopPadding(compactOrLandscape: Boolean): Dp = if (c
 internal fun PlayerQueueCounterBadge(
     currentOneBased: Int,
     totalCount: Int,
-    miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    miuixBackdrop: Backdrop,
     menuTint: Color,
     expressive: PlayerExpressiveColors?,
     oneUi: PlayerOneUiColors?,
@@ -780,7 +776,7 @@ internal data class CoverThemeStageParams(
     val expressive: PlayerExpressiveColors?,
     val oneUi: PlayerOneUiColors?,
     val backdrop: Backdrop,
-    val miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    val miuixBackdrop: Backdrop,
     val menuTint: Color,
     val activeInk: Color,
     val secondaryInk: Color,
@@ -1164,10 +1160,7 @@ internal fun PlayerCoverflowStage(
     }
     val cornerRadius = (metrics.cardSize * 0.088f).coerceIn(16.dp, 26.dp)
     val cardShape = remember(cornerRadius) { RoundedCornerShape(cornerRadius) }
-    val shaderCache = LocalRuntimeShaderCache.current
-    val highlightPaint = remember { Paint() }
-    val useMiuixHighlight = advancedMaterial && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val miuixCenteredHighlight = remember { MiuixHighlight.Default.copy(width = 0.85.dp, alpha = 0.86f) }
+    val useCenteredHighlight = advancedMaterial && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
     Box(modifier = modifier.fillMaxSize()) {
         PlayerQueueCounterBadge(
@@ -1317,86 +1310,75 @@ internal fun PlayerCoverflowStage(
                         modifier = Modifier.size(metrics.cardSize),
                         contentAlignment = Alignment.BottomCenter,
                     ) {
-                    Box(
-                        modifier = Modifier
-                            .then(if (adaptIrregular) Modifier.fitCoverAspectRatio(cardRatio) else Modifier.fillMaxSize())
-                            .graphicsLayer {
-                                transformOrigin = TransformOrigin.Center
-                                if (appearance.coverflowParallax) {
-                                    cameraDistance = 7.0f * density.density
-                                    rotationY = -parallaxTilt.x * 20f * gyroTiltScale
-                                    rotationX = parallaxTilt.y * 17f * gyroTiltScale
+                        Box(
+                            modifier = Modifier
+                                .then(if (adaptIrregular) Modifier.fitCoverAspectRatio(cardRatio) else Modifier.fillMaxSize())
+                                .graphicsLayer {
+                                    transformOrigin = TransformOrigin.Center
+                                    if (appearance.coverflowParallax) {
+                                        cameraDistance = 7.0f * density.density
+                                        rotationY = -parallaxTilt.x * 20f * gyroTiltScale
+                                        rotationX = parallaxTilt.y * 17f * gyroTiltScale
+                                    }
+                                    shadowElevation = elevationPx
+                                    shape = cardShape
+                                    clip = true
                                 }
-                                shadowElevation = elevationPx
-                                shape = cardShape
-                                clip = true
-                            }
-                            .then(
-                                if (blurDp > 0.dp) {
-                                    Modifier.blur(blurDp, BlurredEdgeTreatment(cardShape))
-                                } else {
-                                    Modifier
-                                },
-                            )
-                            .clip(cardShape),
-                    ) {
-                        // Single persistent Cover composable keyed by card page/track so toggling isActiveTrack never drops the bitmap.
-                        Cover(
-                            uri = effectiveUri,
-                            modifier = Modifier.fillMaxSize(),
-                            radius = cornerRadius,
-                            onClick = cardClick,
-                            animation = if (isActiveTrack) appearance.coverAnimation else CoverAnimation.DEFAULT,
-                            animate = isActiveTrack && active,
-                            transitionKey = track.key,
-                            mixVisual = if (isActiveTrack) mixVisual else null,
-                            placeholderTint = activeInk.copy(alpha = 0.3f),
-                            spatialState = if (isActiveTrack) spatialCoverState else SpatialCoverResolveState.Idle,
-                            spatialActive = isActiveTrack && spatialCoverRendering,
-                            spatialTilt = if (isActiveTrack && spatialCoverRendering) {
-                                scaleSpatialParallaxTilt(spatialTilt.value, appearance.spatialCoverSensitivity)
-                            } else {
-                                Offset.Zero
-                            },
-                            motionVideoPath = if (isActiveTrack) motionVideoPath else null,
-                            motionPlaying = isActiveTrack && motionVideoAllowed && mixVisual == null,
-                            motionOverlayAlpha = if (isActiveTrack && mixVisual == null && !spatialCoverRendering) 1f else 0f,
-                        )
-
-                        if (transform.dimAlpha > 0.005f) {
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .background(Color.Black.copy(alpha = transform.dimAlpha)),
-                            )
-                        }
-
-                        if (isCentered && useMiuixHighlight) {
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawMiuixHighlight(miuixCenteredHighlight, cardShape, shaderCache, highlightPaint)
+                                .then(
+                                    if (blurDp > 0.dp) {
+                                        Modifier.blur(blurDp, BlurredEdgeTreatment(cardShape))
+                                    } else {
+                                        Modifier
                                     },
+                                )
+                                .clip(cardShape),
+                        ) {
+                            // Single persistent Cover composable keyed by card page/track so toggling isActiveTrack never drops the bitmap.
+                            Cover(
+                                uri = effectiveUri,
+                                modifier = Modifier.fillMaxSize(),
+                                radius = cornerRadius,
+                                onClick = cardClick,
+                                animation = if (isActiveTrack) appearance.coverAnimation else CoverAnimation.DEFAULT,
+                                animate = isActiveTrack && active,
+                                transitionKey = track.key,
+                                mixVisual = if (isActiveTrack) mixVisual else null,
+                                placeholderTint = activeInk.copy(alpha = 0.3f),
+                                spatialState = if (isActiveTrack) spatialCoverState else SpatialCoverResolveState.Idle,
+                                spatialActive = isActiveTrack && spatialCoverRendering,
+                                spatialTilt = if (isActiveTrack && spatialCoverRendering) {
+                                    scaleSpatialParallaxTilt(spatialTilt.value, appearance.spatialCoverSensitivity)
+                                } else {
+                                    Offset.Zero
+                                },
+                                motionVideoPath = if (isActiveTrack) motionVideoPath else null,
+                                motionPlaying = isActiveTrack && motionVideoAllowed && mixVisual == null,
+                                motionOverlayAlpha = if (isActiveTrack && mixVisual == null && !spatialCoverRendering) 1f else 0f,
                             )
-                        } else {
+
+                            if (transform.dimAlpha > 0.005f) {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(Color.Black.copy(alpha = transform.dimAlpha)),
+                                )
+                            }
+
                             Box(
                                 modifier = Modifier
                                     .matchParentSize()
                                     .border(
-                                        width = if (isCentered) 0.75.dp else 0.6.dp,
+                                        width = if (isCentered && useCenteredHighlight) 0.85.dp else if (isCentered) 0.75.dp else 0.6.dp,
                                         brush = Brush.verticalGradient(
                                             colors = listOf(
-                                                Color.White.copy(alpha = if (isCentered) 0.24f else 0.14f),
-                                                Color.White.copy(alpha = 0.04f),
+                                                Color.White.copy(alpha = if (isCentered && useCenteredHighlight) 0.56f else if (isCentered) 0.24f else 0.14f),
+                                                Color.White.copy(alpha = if (isCentered && useCenteredHighlight) 0.18f else 0.04f),
                                             ),
                                         ),
                                         shape = cardShape,
                                     ),
                             )
                         }
-                    }
                     }
 
                     val reflectionArt = if (isActiveTrack) {

@@ -14,7 +14,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,7 +48,6 @@ import btm.m.auraplayer.lyrics.PlayerLyricView
 import btm.m.auraplayer.lyrics.rememberSpatialGyroTilt
 import btm.m.auraplayer.lyrics.scaleSpatialParallaxTilt
 import btm.m.auraplayer.playback.lyricScaleMultiplier
-import btm.m.auraplayer.spatialcover.SpatialCoverAssets
 import btm.m.auraplayer.spatialcover.SpatialCoverManager
 import btm.m.auraplayer.spatialcover.SpatialCoverRenderer
 import btm.m.auraplayer.spatialcover.SpatialCoverResolveState
@@ -86,13 +84,8 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop as rememberMiuixBackdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop as miuixLayerBackdrop
 import kotlin.math.*
 
 private const val PlayerPaddingScale = 1.15f
@@ -206,7 +199,7 @@ internal fun PlayerHost(model: AuraViewModel, backdrop: Backdrop, miniVisible: B
     val style = model.settings.value.navigation
     val colorStyle = LocalAuraColorStyle.current
     val playerBackdrop = rememberLayerBackdrop()
-    val miuixBackdrop = rememberMiuixBackdrop()
+    val miuixBackdrop = rememberLayerBackdrop()
     val isMaterialTheme = appearance.theme == PlayerTheme.MATERIAL
     val isOneTheme = appearance.theme == PlayerTheme.ONE
     val lyricThemeActiveOnScreen = appearance.lyricTheme != btm.m.auraplayer.playback.LyricTheme.BLUR && lyricsOpen && !queueOpen
@@ -340,7 +333,7 @@ internal fun PlayerHost(model: AuraViewModel, backdrop: Backdrop, miniVisible: B
             },
         )
     }
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val configuration = LocalConfiguration.current
     val hostActiveCoverTheme = resolveActiveCoverTheme(
         appearance.coverTheme,
         isLandscapePlayerLayout(configuration.screenWidthDp.dp, configuration.screenHeightDp.dp),
@@ -375,7 +368,7 @@ internal fun PlayerHost(model: AuraViewModel, backdrop: Backdrop, miniVisible: B
     }) {
         val screenWidth = maxWidth; val screenHeight = maxHeight
         val nav = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val metrics = PlayerNavigationGeometry
+        val metrics = PlayerNavigationGeometry
         val screenCorner = rememberBottomScreenCornerRadius(0.dp)
         val density = LocalDensity.current
         val densityScale = density.density
@@ -387,7 +380,7 @@ internal fun PlayerHost(model: AuraViewModel, backdrop: Backdrop, miniVisible: B
         val rootMiniY = screenHeight - nav - metrics.bottomSpacing - metrics.barHeight - metrics.miniGap - metrics.miniHeight
         val dockMiniY = screenHeight - nav - metrics.bottomSpacing - metrics.barHeight
         val miniY = lerp(rootMiniY, dockMiniY, dock) - model.settings.value.navigationOffsetDp.dp
-        val swipeRange = with(LocalDensity.current) { miniY.toPx().coerceAtLeast(1f) }
+        val swipeRange = with(density) { miniY.toPx().coerceAtLeast(1f) }
         val morphProgress = remember(swipeRange) {
             derivedStateOf {
                 val gestureExpansion = if (miniDrag.axis == MiniPlayerDragAxis.EXPAND) miniDrag.progress else expansion.value
@@ -398,7 +391,7 @@ internal fun PlayerHost(model: AuraViewModel, backdrop: Backdrop, miniVisible: B
         val backgroundVisible = e > 0f
         val backgroundModifier = remember(morphProgress, shareBgAlpha, shareBgBlur, playerBackdrop, miuixBackdrop) {
             Modifier.fillMaxSize().graphicsLayer { alpha = morphProgress.value * shareBgAlpha }
-                .blur(shareBgBlur).layerBackdrop(playerBackdrop).miuixLayerBackdrop(miuixBackdrop)
+                .blur(shareBgBlur).layerBackdrop(playerBackdrop).layerBackdrop(miuixBackdrop)
         }
         // Publish the actual morph, including drag/predictive back and cancelled gestures.
         // The shell blurs its own page layers so shared artwork/metadata stay sharp.
@@ -650,7 +643,7 @@ private fun FullPlayer(model: AuraViewModel, progress: Float, expansion: State<F
                        lyricsOpen: Boolean, queueBlend: Float, backdrop: Backdrop, menuTint: Color,
                        coverPalette: com.materialkolor.palettes.CorePalette,
                        onLyricMenuExpanded: (Boolean) -> Unit,
-                       miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop, onMore: () -> Unit,
+                       miuixBackdrop: Backdrop, onMore: () -> Unit,
                        spatialCoverRequested: Boolean,
                        spatialCoverState: SpatialCoverResolveState,
                        onToggleSpatialCover: () -> Unit,
@@ -1279,7 +1272,7 @@ private fun FullPlayerGlassCardLayer(
     touching: Boolean,
     appearance: NowPlayingConfig,
     backdrop: Backdrop,
-    miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    miuixBackdrop: Backdrop,
     menuTint: Color,
     active: Boolean,
     model: AuraViewModel,
@@ -1291,7 +1284,7 @@ private fun FullPlayerGlassCardLayer(
     val cardHeightPx = with(m.density) { glassCardRect.height.toPx() }
     val localTouch = touchPoint - Offset(cardLeftPx, cardTopPx)
     val touchInside = touching && localTouch.x in 0f..cardWidthPx && localTouch.y in 0f..cardHeightPx
-    val useFullscreenGlass = appearance.fullscreenGlass && btm.m.auraplayer.ui.LocalAdvancedMaterialEnabled.current
+    val useFullscreenGlass = appearance.fullscreenGlass && LocalAdvancedMaterialEnabled.current
     val isLightGlass = !LocalPlayerSurfaceStyle.current.isDark
     val touchLight by animateFloatAsState(
         if (useFullscreenGlass && touchInside) .19f else 0f,
@@ -1540,7 +1533,7 @@ private fun FullPlayerCoverThemeStageLayer(
     expressive: PlayerExpressiveColors?,
     oneUi: PlayerOneUiColors?,
     backdrop: Backdrop,
-    miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    miuixBackdrop: Backdrop,
     menuTint: Color,
     mixVisual: btm.m.auraplayer.auramix.AuraMixVisualTransition?,
     spatialCoverState: SpatialCoverResolveState,
@@ -2048,7 +2041,7 @@ private fun FullPlayerMetadataAndActionsLayer(
     appearance: NowPlayingConfig,
     expressive: PlayerExpressiveColors?,
     oneUi: PlayerOneUiColors?,
-    miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    miuixBackdrop: Backdrop,
     menuTint: Color,
     miniColor: Color,
     mixVisual: btm.m.auraplayer.auramix.AuraMixVisualTransition?,
@@ -2756,6 +2749,7 @@ private fun PlayerBottomActionsSection(
             btm.m.auraplayer.ROAMING_PLAYBACK_MODE -> tr("roaming_mode", "漫游模式")
             else -> tr("repeat_all_mode", "列表循环")
         }
+        @Suppress("UNUSED_VARIABLE")
         val revision = model.history.revision
         val favorite = model.isFavorite(song)
         if (expressive != null) {
@@ -2824,7 +2818,7 @@ private fun PlayerBottomActionsSection(
 private fun PlayerMoreActionButton(
     expressive: PlayerExpressiveColors?,
     oneUi: PlayerOneUiColors?,
-    miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    miuixBackdrop: Backdrop,
     menuTint: Color,
     enabled: Boolean,
     onMore: () -> Unit,
@@ -2869,7 +2863,7 @@ private fun PlayerSpatialCubeButton(
     generating: Boolean,
     expressive: PlayerExpressiveColors?,
     oneUi: PlayerOneUiColors?,
-    miuixBackdrop: top.yukonga.miuix.kmp.blur.Backdrop,
+    miuixBackdrop: Backdrop,
     menuTint: Color,
     inkColor: Color,
     enabled: Boolean,
@@ -3015,7 +3009,7 @@ internal fun Cover(uri: String, modifier: Modifier, radius: Dp, bottomRadius: Dp
         label = "spatialCoverCrossfade",
     )
     val feather = immersiveFeather.coerceIn(0f, 1f)
-    val coverBackdrop = rememberMiuixBackdrop { drawContent() }
+    val coverBackdrop = rememberLayerBackdrop { drawContent() }
     val featherMask = if (feather > 0.001f) {
         Modifier
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
@@ -3061,148 +3055,149 @@ internal fun Cover(uri: String, modifier: Modifier, radius: Dp, bottomRadius: Dp
                 .then(featherMask),
             contentAlignment = Alignment.Center,
         ) {
-        if (mixVisual == null) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .then(if (coverBlurDp > 0.01f) Modifier.clip(coverShape) else Modifier)
-                    .blur(coverBlurDp.dp),
-            ) {
-                val advancedMaterial = btm.m.auraplayer.ui.LocalAdvancedMaterialEnabled.current
+            if (mixVisual == null) {
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .then(if (feather > 0.001f && advancedMaterial) Modifier.miuixLayerBackdrop(coverBackdrop) else Modifier),
+                        .then(if (coverBlurDp > 0.01f) Modifier.clip(coverShape) else Modifier)
+                        .blur(coverBlurDp.dp),
                 ) {
-                    if (uri.isNotBlank()) {
-                        AnimatedPlayerArtwork(
-                            artwork = uri,
-                            transitionKey = transitionKey,
-                            animation = animation,
-                            enabled = animate,
-                            shape = coverShape,
-                            placeholderBackgroundColor = placeholderColor,
-                            onAspectRatioResolved = if (adaptIrregular) ({ measuredRatio = it }) else null,
-                        )
-                    } else if (showPlaceholderBackground) {
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .clip(coverShape)
-                                .background(placeholderColor),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Image(painterResource(R.drawable.ic_player_queue), null, Modifier.fillMaxSize(.3f * PlayerIconScale), colorFilter = ColorFilter.tint(placeholderTint))
-                        }
-                    }
-                    if (!motionVideoPath.isNullOrBlank()) {
-                        AnimatedMotionCoverVideo(
-                            videoPath = motionVideoPath,
-                            playing = motionPlaying && !(spatialActive && spatialAssets != null),
-                            visibleAlpha = motionOverlayAlpha,
-                            modifier = Modifier.fillMaxSize().clip(coverShape),
-                        )
-                    }
-                    if (spatialAssets != null && showSpatial > 0.001f) {
-                        Box(Modifier.fillMaxSize().clip(coverShape).graphicsLayer { this.alpha = showSpatial }) {
-                            SpatialCoverRenderer(
-                                assets = spatialAssets,
-                                tiltProvider = { spatialTilt },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                    }
-                }
-                if (feather > 0.01f && advancedMaterial) {
+                    val advancedMaterial = LocalAdvancedMaterialEnabled.current
                     Box(
                         Modifier
-                            .matchParentSize()
-                            .clip(coverShape)
-                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                            .progressiveTextureBlur(
-                                backdrop = coverBackdrop,
-                                shape = RectangleShape,
-                                blurRadius = 3.8f * feather,
-                                gradient = if (immersiveHorizontal) ProgressiveBlur.Right else ProgressiveBlur.Bottom,
-                            ).drawWithContent {
-                                drawContent()
-                                val blurStops = arrayOf(
-                                    0f to Color.Transparent,
-                                    .54f to Color.Transparent,
-                                    .92f to Color.White.copy(alpha = feather),
-                                    1f to Color.White.copy(alpha = feather),
-                                )
-                                drawRect(
-                                    if (immersiveHorizontal) Brush.horizontalGradient(*blurStops) else Brush.verticalGradient(*blurStops),
-                                    blendMode = BlendMode.DstIn,
-                                )
-                            },
-                    )
-                }
-            }
-            if (progressOverlayAlpha > 0.01f) {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .clip(coverShape)
-                        .background(Color.Black.copy(alpha = 0.36f * progressOverlayAlpha))
-                        .graphicsLayer { this.alpha = progressOverlayAlpha },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                            .fillMaxSize()
+                            .then(if (feather > 0.001f && advancedMaterial) Modifier.layerBackdrop(coverBackdrop) else Modifier),
                     ) {
-                        Text(
-                            tr("spatial_generating_label", "正在计算空间效果"),
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                        )
-                        Text(
-                            "${(animatedGenProgress * 100f).roundToInt().coerceIn(0, 100)}%",
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Box(
-                            Modifier
-                                .width(120.dp)
-                                .height(5.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(Color.White.copy(alpha = 0.28f)),
-                        ) {
+                        if (uri.isNotBlank()) {
+                            AnimatedPlayerArtwork(
+                                artwork = uri,
+                                transitionKey = transitionKey,
+                                animation = animation,
+                                enabled = animate,
+                                shape = coverShape,
+                                placeholderBackgroundColor = placeholderColor,
+                                onAspectRatioResolved = if (adaptIrregular) ({ measuredRatio = it }) else null,
+                            )
+                        } else if (showPlaceholderBackground) {
                             Box(
                                 Modifier
-                                    .fillMaxWidth(animatedGenProgress.coerceIn(0.04f, 1f))
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(50))
-                                    .background(Color.White),
+                                    .fillMaxSize()
+                                    .clip(coverShape)
+                                    .background(placeholderColor),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Image(painterResource(R.drawable.ic_player_queue), null, Modifier.fillMaxSize(.3f * PlayerIconScale), colorFilter = ColorFilter.tint(placeholderTint))
+                            }
+                        }
+                        if (!motionVideoPath.isNullOrBlank()) {
+                            AnimatedMotionCoverVideo(
+                                videoPath = motionVideoPath,
+                                playing = motionPlaying && !(spatialActive && spatialAssets != null),
+                                visibleAlpha = motionOverlayAlpha,
+                                modifier = Modifier.fillMaxSize().clip(coverShape),
                             )
+                        }
+                        if (spatialAssets != null && showSpatial > 0.001f) {
+                            Box(Modifier.fillMaxSize().clip(coverShape).graphicsLayer { this.alpha = showSpatial }) {
+                                SpatialCoverRenderer(
+                                    assets = spatialAssets,
+                                    tiltProvider = { spatialTilt },
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    }
+                    if (feather > 0.01f && advancedMaterial) {
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .clip(coverShape)
+                                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                .drawBackdrop(
+                                    backdrop = coverBackdrop,
+                                    shape = { RectangleShape },
+                                    effects = {
+                                        backdropBlur((3.8f * feather).dp.toPx())
+                                    },
+                                    onDrawSurface = {
+                                        val blurStops = arrayOf(
+                                            0f to Color.Transparent,
+                                            .54f to Color.Transparent,
+                                            .92f to Color.Black.copy(alpha = feather),
+                                            1f to Color.Black.copy(alpha = feather),
+                                        )
+                                        drawRect(
+                                            if (immersiveHorizontal) Brush.horizontalGradient(*blurStops) else Brush.verticalGradient(*blurStops),
+                                            blendMode = BlendMode.DstIn,
+                                        )
+                                    },
+                                ),
+                        )
+                    }
+                }
+                if (progressOverlayAlpha > 0.01f) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .clip(coverShape)
+                            .background(Color.Black.copy(alpha = 0.36f * progressOverlayAlpha))
+                            .graphicsLayer { this.alpha = progressOverlayAlpha },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                tr("spatial_generating_label", "正在计算空间效果"),
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                            )
+                            Text(
+                                "${(animatedGenProgress * 100f).roundToInt().coerceIn(0, 100)}%",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Box(
+                                Modifier
+                                    .width(120.dp)
+                                    .height(5.dp)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color.White.copy(alpha = 0.28f)),
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth(animatedGenProgress.coerceIn(0.04f, 1f))
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color.White),
+                                )
+                            }
                         }
                     }
                 }
+            } else {
+                val fromAlpha = 1f - progress!!
+                val toAlpha = progress
+                val context = LocalContext.current
+                val fromReq = remember(mixVisual.fromArtwork, context) {
+                    if (mixVisual.fromArtwork.isNotBlank()) ImageRequest.Builder(context).data(mixVisual.fromArtwork).size(1600).precision(Precision.INEXACT).build() else null
+                }
+                val toReq = remember(mixVisual.toArtwork, context) {
+                    if (mixVisual.toArtwork.isNotBlank()) ImageRequest.Builder(context).data(mixVisual.toArtwork).size(1600).precision(Precision.INEXACT).build() else null
+                }
+                Box(Modifier.fillMaxSize().clip(coverShape).graphicsLayer { alpha = fromAlpha }.blur((progress * 26f).dp)) {
+                    if (fromReq != null) AsyncImage(fromReq, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    else if (uri.isNotBlank()) AnimatedPlayerArtwork(uri, transitionKey, animation, animate, shape = coverShape, placeholderBackgroundColor = placeholderColor)
+                }
+                Box(Modifier.fillMaxSize().clip(coverShape).graphicsLayer { alpha = toAlpha }.blur(((1f - progress) * 26f).dp)) {
+                    if (toReq != null) AsyncImage(toReq, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
             }
-        } else {
-            val fromAlpha = 1f - progress!!
-            val toAlpha = progress
-            val context = LocalContext.current
-            val fromReq = remember(mixVisual.fromArtwork, context) {
-                if (mixVisual.fromArtwork.isNotBlank()) ImageRequest.Builder(context).data(mixVisual.fromArtwork).size(1600).precision(Precision.INEXACT).build() else null
-            }
-            val toReq = remember(mixVisual.toArtwork, context) {
-                if (mixVisual.toArtwork.isNotBlank()) ImageRequest.Builder(context).data(mixVisual.toArtwork).size(1600).precision(Precision.INEXACT).build() else null
-            }
-            Box(Modifier.fillMaxSize().clip(coverShape).graphicsLayer { alpha = fromAlpha }.blur((progress * 26f).dp)) {
-                if (fromReq != null) AsyncImage(fromReq, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                else if (uri.isNotBlank()) AnimatedPlayerArtwork(uri, transitionKey, animation, animate, shape = coverShape, placeholderBackgroundColor = placeholderColor)
-            }
-            Box(Modifier.fillMaxSize().clip(coverShape).graphicsLayer { alpha = toAlpha }.blur(((1f - progress) * 26f).dp)) {
-                if (toReq != null) AsyncImage(toReq, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            }
-        }
         }
     }
 }
@@ -3803,4 +3798,3 @@ private fun localAudioText(model: AuraViewModel): String = model.localAudioDetai
         if (detail.bitrate > 0) add("${(detail.bitrate / 1000.0).roundToInt()} ${tr("kbps", "kb/s")}")
     }.joinToString(" · ")
 }?.takeIf(String::isNotBlank) ?: tr("audio_details_loading", "正在读取音频信息…")
-

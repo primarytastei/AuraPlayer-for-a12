@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -20,8 +21,8 @@ import btm.m.auraplayer.R
 import btm.m.auraplayer.lyrics.LyricSize
 import btm.m.auraplayer.playback.LyricTranslationSource
 import btm.m.auraplayer.ui.tr
+import com.kyant.backdrop.Backdrop
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.Backdrop
 
 internal fun lyricSizeLabel(size: LyricSize): String = when (size) {
     LyricSize.EXTRA_SMALL -> tr("lyrics_size_extra_small", "极小")
@@ -62,13 +63,13 @@ internal fun LyricOptionsMenu(
     val shape = RoundedCornerShape(22.dp + 4.dp * p)
     Box(Modifier.fillMaxSize().then(modifier)) {
         if (expanded || p > 0f) Box(Modifier.fillMaxSize()
-            .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+            .clickable(interactionSource = remember { MutableInteractionSource() },
                 indication = null) { expanded = false })
         Box(
             Modifier.offset(anchorX, anchorY + buttonSize - height).size(width, height)
                 .playerMenuMaterial(backdrop, tint, 22.dp + 4.dp * p)
                 .clip(shape)
-                .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                .clickable(interactionSource = remember { MutableInteractionSource() },
                     indication = null, enabled = !expanded, onClick = { expanded = true }),
             contentAlignment = Alignment.Center,
         ) {
