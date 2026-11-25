@@ -88,7 +88,7 @@ fun AboutPage(
                         DeviceInfoItem(marketName, tr("device_model", "设备型号"))
                         DeviceInfoItem("${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})", tr("android_version", "Android 版本"))
                         DeviceInfoItem(systemVersion, tr("hyperos_version", "HyperOS 版本"))
-                        DeviceInfoItem("Android 13+", tr("supported_version", "Aura Player 适配版本"))
+                        DeviceInfoItem("Android 12+", tr("supported_version", "Aura Player 适配版本"))
                     }
                 }
             }

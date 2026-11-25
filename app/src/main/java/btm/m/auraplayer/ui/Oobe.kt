@@ -138,6 +138,20 @@ private data class OobeFeatureItem(
     val accent: Color,
 )
 
+private val requiredAudioPermission: String
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+private fun hasNotificationPermission(context: Context): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        true
+    }
+
 @Composable
 internal fun OobeFlow(
     model: AuraViewModel,
@@ -517,10 +531,10 @@ private fun OobePreparationPage(
     next: () -> Unit,
 ) {
     val context = LocalContext.current
-    val androidSupported = Build.VERSION.SDK_INT >= 33
-    var audioGranted by remember { mutableStateOf(hasPermission(context, Manifest.permission.READ_MEDIA_AUDIO)) }
+    val androidSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    var audioGranted by remember { mutableStateOf(hasPermission(context, requiredAudioPermission)) }
     var audioDeniedOnce by rememberSaveable { mutableStateOf(false) }
-    var notifGranted by remember { mutableStateOf(hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)) }
+    var notifGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
     var notifDeniedOnce by rememberSaveable { mutableStateOf(false) }
 
     val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -546,10 +560,10 @@ private fun OobePreparationPage(
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        val nextAudio = hasPermission(context, Manifest.permission.READ_MEDIA_AUDIO)
+        val nextAudio = hasPermission(context, requiredAudioPermission)
         if (nextAudio && !audioGranted) model.refreshLibrary()
         audioGranted = nextAudio
-        notifGranted = hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+        notifGranted = hasNotificationPermission(context)
     }
 
     val openAppSettings: () -> Unit = {
@@ -596,7 +610,7 @@ private fun OobePreparationPage(
                     onClick = if (!audioGranted) {
                         {
                             if (audioDeniedOnce) openAppSettings()
-                            else audioLauncher.launch(Manifest.permission.READ_MEDIA_AUDIO)
+                            else audioLauncher.launch(requiredAudioPermission)
                         }
                     } else {
                         null
@@ -615,7 +629,11 @@ private fun OobePreparationPage(
                     onClick = if (!notifGranted) {
                         {
                             if (notifDeniedOnce) openAppSettings()
-                            else notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                openAppSettings()
+                            }
                         }
                     } else {
                         null
