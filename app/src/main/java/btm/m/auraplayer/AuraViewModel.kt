@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.database.ContentObserver
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
@@ -566,8 +567,17 @@ class AuraViewModel(application: Application) : AndroidViewModel(application) {
         if (before.whitelist != after.whitelist || before.blacklist != after.blacklist || before.filenameBlockRules != after.filenameBlockRules ||
             before.durationFilter != after.durationFilter || before.minimumSeconds != after.minimumSeconds) refreshLibrary(debounce = true)
     }
+    private fun isLocalAudioPermissionGranted(): Boolean {
+        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        return ContextCompat.checkSelfPermission(app, perm) == PackageManager.PERMISSION_GRANTED
+    }
+
     fun refreshLibrary(debounce: Boolean = false, onComplete: ((Int) -> Unit)? = null) {
-        hasPermission = ContextCompat.checkSelfPermission(app, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        hasPermission = isLocalAudioPermissionGranted()
         scanJob?.cancel()
         scanJob = viewModelScope.launch {
             if (debounce) delay(300)
@@ -620,7 +630,7 @@ class AuraViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun scanFolder(treeUri: android.net.Uri, onComplete: (Int) -> Unit = {}) {
-        hasPermission = ContextCompat.checkSelfPermission(app, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        hasPermission = isLocalAudioPermissionGranted()
         scanJob?.cancel()
         scanJob = viewModelScope.launch {
             scanning = true
