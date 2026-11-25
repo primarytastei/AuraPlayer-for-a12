@@ -49,10 +49,6 @@ import com.kyant.backdrop.highlight.Highlight
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.*
-import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.layerBackdrop as miuixLayerBackdrop
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop as rememberMiuixLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.*
 import top.yukonga.miuix.kmp.shader.isRuntimeShaderSupported
@@ -581,7 +577,6 @@ internal fun ImmersiveBannerSurfaceBackdrop(
         HomeBackgroundStyle.COLOR -> bannerTheme.surfaceColor
         HomeBackgroundStyle.COLOR_BLUR -> Color.Transparent
     }
-    val heroBackdrop = rememberMiuixLayerBackdrop { drawContent() }
     val featheredModifier = if (backgroundStyle == HomeBackgroundStyle.COLOR_BLUR) {
         modifier
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
@@ -605,18 +600,13 @@ internal fun ImmersiveBannerSurfaceBackdrop(
         modifier
     }
     Box(featheredModifier) {
-        Box(Modifier.matchParentSize().miuixLayerBackdrop(heroBackdrop), content = backdropContent)
+        Box(Modifier.matchParentSize(), content = backdropContent)
         if (LocalAdvancedMaterialEnabled.current) {
             Box(
                 Modifier
                     .matchParentSize()
                     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                    .progressiveTextureBlur(
-                        backdrop = heroBackdrop,
-                        shape = RectangleShape,
-                        blurRadius = if (backgroundStyle == HomeBackgroundStyle.COLOR_BLUR) 7.5f else 5.8f,
-                        gradient = ProgressiveBlur.Bottom.copy(startFraction = 0.22f, endFraction = 0.96f),
-                    )
+                    .blur(if (backgroundStyle == HomeBackgroundStyle.COLOR_BLUR) 14.dp else 10.dp)
                     .drawWithContent {
                         drawContent()
                         drawRect(
@@ -633,6 +623,7 @@ internal fun ImmersiveBannerSurfaceBackdrop(
                             blendMode = BlendMode.DstIn,
                         )
                     },
+                content = backdropContent,
             )
         }
         Box(
