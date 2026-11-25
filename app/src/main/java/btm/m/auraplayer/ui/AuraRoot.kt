@@ -1,12 +1,15 @@
 package btm.m.auraplayer.ui
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
+import android.os.Build
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -71,6 +74,25 @@ import top.yukonga.miuix.kmp.basic.*
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.*
 import top.yukonga.miuix.kmp.theme.*
+
+/**
+ * Android 12 兼容：媒体音频运行时权限的系统版本适配。
+ * API >= 33（Android 13+）使用 READ_MEDIA_AUDIO；
+ * API < 33（含 Android 12 / API 31）READ_MEDIA_AUDIO 不存在，必须使用 READ_EXTERNAL_STORAGE。
+ */
+internal fun libraryAudioPermission(): String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+        Manifest.permission.READ_MEDIA_AUDIO
+    else
+        Manifest.permission.READ_EXTERNAL_STORAGE
+
+/**
+ * Android 12 兼容：按系统实时状态判断是否已拥有读取音乐库的权限。
+ * 供 SongsPage / HomePage 在页面恢复前台（ON_RESUME）时重新校验授权状态，
+ * 避免仅依赖 ViewModel 侧的 model.hasPermission 标志导致授权卡片常驻不消失。
+ */
+internal fun hasLibraryAudioPermission(context: android.content.Context): Boolean =
+    ContextCompat.checkSelfPermission(context, libraryAudioPermission()) == PackageManager.PERMISSION_GRANTED
 
 internal val colorPresets = listOf(
     Triple("blue", "澄空蓝", 0xFF6E92D8), Triple("cyan", "清泉青", 0xFF4B9BAA),
@@ -173,30 +195,22 @@ private fun AuraShell(model: AuraViewModel, onEnterOobe: () -> Unit = {}) {
     val miniBlurRadius = playerMiniBlurRadius(settings.navigation,
         rememberModuleNavigationMaterial(settings.navigation).blur)
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
-val audioPermission = remember {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_AUDIO
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        permissionDenied = !granted
+        model.refreshLibrary()
     }
-}
-val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-    permissionDenied = !granted
-    model.refreshLibrary()
-}
-val requestPermission: () -> Unit = {
-    if (permissionDenied) {
-        context.startActivity(
-            Intent(
-                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                Uri.parse("package:${context.packageName}")
-            )
-        )
-    } else {
-        permission.launch(audioPermission)
+    val requestPermission: () -> Unit = {
+        if (permissionDenied) context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+        // Android 12 兼容：按系统版本申请对应权限。在 API < 33 上申请 READ_MEDIA_AUDIO
+        // 会被系统当作未知权限立即回传“未授权”，导致首页授权卡片永远无法消失。
+        else permission.launch(libraryAudioPermission())
     }
-}
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { model.refreshLibrary() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        // Android 12 兼容：从系统设置页 / 权限弹窗返回本页时，用系统实时权限纠正本地标志，
+        // 一旦检测到权限已授予，立即清除拒绝标志并重新扫描媒体库，从而隐藏授权卡片。
+        if (hasLibraryAudioPermission(context)) permissionDenied = false
+        model.refreshLibrary()
+    }
     val selected = rememberSaveable { mutableIntStateOf(0) }
     // Pure local mode has no Cloud tab; never stay on it.
     if (!model.cloudEnabled && selected.intValue == 1) selected.intValue = 0
