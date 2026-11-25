@@ -92,6 +92,7 @@ android {
         }
     }
 }
+
 dependencies {
     implementation("com.github.Adonai:jaudiotagger:2.3.15")
     implementation("com.google.zxing:core:3.5.3")
@@ -99,10 +100,16 @@ dependencies {
     implementation("com.mocharealm.accompanist:lyrics-core:0.4.7")
     implementation("com.materialkolor:material-color-utilities:5.0.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.0")
-    implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
+    implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4") {
+        exclude(group = "top.yukonga.miuix.kmp", module = "miuix-blur-android")
+    }
+    implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4") {
+        exclude(group = "top.yukonga.miuix.kmp", module = "miuix-blur-android")
+    }
+    implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4") {
+        exclude(group = "top.yukonga.miuix.kmp", module = "miuix-blur-android")
+    }
+    // implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
     implementation("io.github.kyant0:backdrop:2.0.0")
     implementation("io.github.kyant0:shapes:1.2.0")
     implementation("io.github.itoseo:coui:0.0.1-alpha9")
