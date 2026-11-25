@@ -71,6 +71,8 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.size.Precision
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur as backdropBlur
 import com.kyant.backdrop.effects.vibrancy
@@ -79,12 +81,6 @@ import com.materialkolor.palettes.CorePalette
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.LocalRuntimeShaderCache
-import top.yukonga.miuix.kmp.blur.ProgressiveBlur
-import top.yukonga.miuix.kmp.blur.highlight.Highlight as MiuixHighlight
-import top.yukonga.miuix.kmp.blur.layerBackdrop as miuixLayerBackdrop
-import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop as rememberMiuixLayerBackdrop
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -584,7 +580,7 @@ internal fun PlayerTiledStage(
         )
     }
     val dockChromeVisible by remember { derivedStateOf { !isDragging || dockChromeAlphaAnim.value > 0.01f } }
-    // Capture MIUIX progressive blur only once open/close morph + panning + spring settle finish so animations stay fluid.
+    // Capture backdrop blur only once open/close morph + panning + spring settle finish so animations stay fluid.
     val stageSettledState = rememberUpdatedState(params.stageSettled)
     val wallSettled by remember {
         derivedStateOf { stageSettledState.value && !isDragging && !panCol.isRunning && !panRow.isRunning }
@@ -603,23 +599,22 @@ internal fun PlayerTiledStage(
     val coverMixAccent = expressive?.primaryContainer ?: oneUi?.card ?: Color(coverPalette.a1.tone(32))
     val coverMixTint = remember(scrimTone, coverMixAccent) { lerp(scrimTone, coverMixAccent, 0.42f) }
     val wallBackdropBase = remember(coverMixTint) { coverMixTint.copy(alpha = 0.92f) }
-    val wallBackdrop = rememberMiuixLayerBackdrop {
+    val wallBackdrop = rememberLayerBackdrop {
         drawRect(wallBackdropBase)
         drawContent()
     }
     val focusShadowAmbient = remember { Color.Black.copy(alpha = 0.24f) }
     val focusShadowSpot = remember { Color.Black.copy(alpha = 0.34f) }
-    val shaderCache = LocalRuntimeShaderCache.current
     val highlightPaint = remember { Paint() }
     val useMiuixHighlight = advancedMaterial && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val miuixHeroHighlight = remember { MiuixHighlight.Default.copy(width = 0.55.dp, alpha = 0.88f) }
+    val miuixHeroHighlight = remember { Highlight.Default.copy(width = 0.55.dp, alpha = 0.88f) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 2D Interactive Edge-to-Edge Album Mosaic Wall (captured for MIUIX progressive blur behind controls)
+        // 2D Interactive Edge-to-Edge Album Mosaic Wall (captured for backdrop blur behind controls)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (captureBackdrop) Modifier.miuixLayerBackdrop(wallBackdrop) else Modifier)
+                .then(if (captureBackdrop) Modifier.layerBackdrop(wallBackdrop) else Modifier)
                 .pointerInput(pitchPx, focusX, focusY, tileSizePx) {
                     detectTapGestures { tapOffset ->
                         if (!latestInteractive || isDragging) return@detectTapGestures
@@ -878,7 +873,7 @@ internal fun PlayerTiledStage(
                                             drawRect(color = Color.Black, alpha = darkenAlpha)
                                         }
                                     } else if (drawPooledHighlight && useMiuixHighlight) {
-                                        drawMiuixHighlight(miuixHeroHighlight, tileShape, shaderCache, highlightPaint)
+                                        drawMiuixHighlight(miuixHeroHighlight, tileShape, highlightPaint)
                                     }
                                 }
                                 .then(
@@ -972,7 +967,7 @@ internal fun PlayerTiledStage(
                             if (useMiuixHighlight) {
                                 Modifier.drawWithContent {
                                     drawContent()
-                                    drawMiuixHighlight(miuixHeroHighlight, tileShape, shaderCache, highlightPaint)
+                                    drawMiuixHighlight(miuixHeroHighlight, tileShape, highlightPaint)
                                 }
                             } else {
                                 Modifier.border(width = 0.6.dp, color = Color.White.copy(alpha = 0.28f), shape = tileShape)
@@ -1004,7 +999,7 @@ internal fun PlayerTiledStage(
             }
         }
 
-        // Controls area backdrop: MIUIX progressive blur + cover-extracted color mix (no black shadow buildup)
+        // Controls area backdrop: progressive blur + cover-extracted color mix (no black shadow buildup)
         val topFeatherHeight = topInset + 56.dp
         val bottomControlBackdropHeight = if (metrics.isLandscape) {
             bottomInset + (if (metrics.dockCompact) 144.dp else 166.dp)
@@ -1041,11 +1036,12 @@ internal fun PlayerTiledStage(
                                 alpha = progressiveBlurAlphaAnim.value
                                 compositingStrategy = CompositingStrategy.Offscreen
                             }
-                            .progressiveTextureBlur(
+                            .drawBackdrop(
                                 backdrop = wallBackdrop,
-                                shape = RectangleShape,
-                                blurRadius = 4.2f,
-                                gradient = ProgressiveBlur.Bottom.copy(startFraction = 0.14f, endFraction = 0.96f),
+                                shape = { RectangleShape },
+                                effects = {
+                                    backdropBlur(4.2.dp.toPx())
+                                },
                             )
                             .drawWithCache {
                                 val fade = Brush.verticalGradient(
