@@ -43,14 +43,14 @@ jobs:
       - name: Decode signing keystore
         shell: bash
         env:
-          SIGNING_KEY_BASE64: ${{ secrets.KEY_BASE64 }}
+          SIGNING_KEY_BASE64: ${{ secrets.KEYSTONE_BASE64 }}
         run: |
           set -euo pipefail
-          if [ -z "$KEY_BASE64" ]; then
-            echo "Missing secrets.KEY_BASE64" >&2
+          if [ -z "$KEYSTONE_BASE64" ]; then
+            echo "Missing secrets.KEYSTONE_BASE64" >&2
             exit 1
           fi
-          printf '%s' "$KEY_BASE64" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/release.jks"
+          printf '%s' "$KEYSTONE_BASE64" | tr -d '\r\n' | base64 --decode > "$RUNNER_TEMP/release.jks"
           test -s "$RUNNER_TEMP/release.jks"
 
       - name: Build Release APK
