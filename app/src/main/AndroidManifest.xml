@@ -1,113 +1,202 @@
-import java.time.LocalDate
-import java.util.Properties
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:overrideLibrary="top.yukonga.miuix.kmp.blur">
 
-plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
-}
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
-val localProps = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.isFile) file.inputStream().use(::load)
-}
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="false" />
 
-fun signingValue(key: String, vararg envKeys: String): String? =
-    providers.gradleProperty(key).orNull?.takeIf { it.isNotBlank() }
-        ?: envKeys.firstNotNullOfOrNull { envKey ->
-            System.getenv(envKey)?.takeIf { it.isNotBlank() }
-        }
-        ?: localProps.getProperty(key)?.takeIf { it.isNotBlank() }
+    <application
+        android:name=".AuraApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="Aura Player"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Aura"
+        android:usesCleartextTraffic="true">
 
-val releaseStoreFile = signingValue("releaseStoreFile", "KEYSTORE_FILE", "RELEASE_STORE_FILE")
-val releaseStorePassword = signingValue("releaseStorePassword", "KEYSTORE_PASSWORD", "RELEASE_STORE_PASSWORD")
-val releaseKeyAlias = signingValue("releaseKeyAlias", "KEY_ALIAS", "RELEASE_KEY_ALIAS")
-val releaseKeyPassword = signingValue("releaseKeyPassword", "KEY_PASSWORD", "RELEASE_KEY_PASSWORD")
-val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
-    !releaseStorePassword.isNullOrEmpty() &&
-    !releaseKeyAlias.isNullOrBlank() &&
-    !releaseKeyPassword.isNullOrEmpty()
-val buildDate = LocalDate.now().toString().replace('-', '.')
+        <uses-native-library
+            android:name="libcdsprpc.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
 
-android {
-    namespace = "btm.m.auraplayer"
-    compileSdk = 37
-    localProps.getProperty("ndk.dir")?.takeIf { it.isNotBlank() }?.let { dir ->
-        val srcProps = file("$dir/source.properties")
-        if (srcProps.isFile) {
-            val props = Properties().apply { srcProps.inputStream().use(::load) }
-            props.getProperty("Pkg.Revision")?.takeIf { it.isNotBlank() }?.let { ndkVersion = it }
-        }
-    }
-    defaultConfig {
-        applicationId = "btm.m.auraplayer.for_a12"
-        minSdk = 31
-        targetSdk = 37
-        versionCode = 1010040
-        versionName = "1.0.1 Fix"
-        buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-        }
-        externalNativeBuild {
-            cmake {
-                cppFlags += ""
-            }
-        }
-    }
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-        }
-    }
-    buildFeatures { compose = true; buildConfig = true }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    if (hasReleaseSigning) {
-        signingConfigs {
-            create("release") {
-                storeFile = file(releaseStoreFile!!)
-                storePassword = releaseStorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
-            }
-        }
-    }
-    buildTypes {
-        release {
-            isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
-            }
-        }
-    }
-    packaging {
-        jniLibs {
-            excludes += listOf(
-                "**/libonnxruntime.so",
-                "**/libonnxruntime4j_jni.so",
-            )
-        }
-    }
-}
-dependencies {
-    implementation("com.github.Adonai:jaudiotagger:2.3.15")
-    implementation("com.google.zxing:core:3.5.3")
-    implementation("androidx.work:work-runtime-ktx:2.11.0")
-    implementation("com.mocharealm.accompanist:lyrics-core:0.4.7")
-    implementation("com.materialkolor:material-color-utilities:5.0.0")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.0")
-    implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4")
-    // implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
-    implementation("io.github.kyant0:backdrop:2.0.0")
-    implementation("io.github.kyant0:shapes:1.2.0")
-    implementation("io.github.itoseo:coui:0.0.1-alpha9")
-    implementation("org.jetbrains.compose.ui:ui:1.11.0")
-    implementation("org.jetbrains.compose.foundation:foundation:1.11.0")
-    implementation("org.jetbrains.compose.animation:animation:1.11.0")
-    implementation("androidx.activity:activity-compose:1.12.3")
-    implementation("androidx.lifecycle
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.OfficialLoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Aura"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".RearPlayerActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode|fontScale|layoutDirection|colorMode|fontWeightAdjustment"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:showWhenLocked="true"
+            android:supportsPictureInPicture="false"
+            android:taskAffinity="${applicationId}.rear"
+            android:theme="@style/Theme.Aura"
+            android:turnScreenOn="true">
+            <meta-data
+                android:name="miui.rear.policy"
+                android:value="1" />
+        </activity>
+
+        <service
+            android:name=".playback.PlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".download.DownloadCompletedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.AuraPlayerWidget2x2Provider"
+            android:exported="true"
+            android:label="@string/widget_player_label">
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/aura_player_widget_2x2_info" />
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.AuraPlayerWidget4x1Provider"
+            android:exported="true"
+            android:label="@string/widget_player_label">
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/aura_player_widget_4x1_info" />
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.AuraPlayerWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_player_label">
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/aura_player_widget_info" />
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.AuraPlayerWidget4x3Provider"
+            android:exported="true"
+            android:label="@string/widget_player_label">
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/aura_player_widget_4x3_info" />
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.AuraPlayerWidget4x4Provider"
+            android:exported="true"
+            android:label="@string/widget_player_label">
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/aura_player_widget_4x4_info" />
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.AuraCoverWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_cover_label">
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/aura_cover_widget_info" />
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="miui.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.WidgetActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="btm.m.auraplayer.widget.ACTION_PLAY_PAUSE" />
+                <action android:name="btm.m.auraplayer.widget.ACTION_PREV" />
+                <action android:name="btm.m.auraplayer.widget.ACTION_NEXT" />
+                <action android:name="btm.m.auraplayer.widget.ACTION_PLAY_QUEUE_INDEX" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.preset-files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/preset_file_paths" />
+        </provider>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <provider
+            android:name="ai.onnxruntime.TelemetryInitializer"
+            android:authorities="${applicationId}.onnxruntime_telemetry_initializer"
+            tools:node="remove" />
+    </application>
+</manifest>
