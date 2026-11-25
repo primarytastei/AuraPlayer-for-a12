@@ -32,7 +32,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -312,6 +319,15 @@ private fun LazyListScope.songRows(
     }
 }
 
+internal fun hasLibraryAudioPermission(context: Context): Boolean {
+    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_AUDIO
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+    return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+}
+
 @Composable
 internal fun PermissionCard(onClick: () -> Unit) {
     SeamlessCard(Modifier.fillMaxWidth(), cornerRadius = 22.5.dp, insideMargin = PaddingValues(18.dp)) {
@@ -325,6 +341,26 @@ internal fun PermissionCard(onClick: () -> Unit) {
 @Composable
 fun SongsPage(model: AuraViewModel, padding: PaddingValues, requestPermission: () -> Unit,
               onOpenSecondary: (Int) -> Unit = {}) {
+    val context = LocalContext.current
+    var audioGranted by remember { mutableStateOf(model.hasPermission || hasLibraryAudioPermission(context)) }
+    val effectiveHasPermission = model.hasPermission || audioGranted
+
+    LaunchedEffect(model.hasPermission) {
+        val currentGranted = model.hasPermission || hasLibraryAudioPermission(context)
+        if (currentGranted && !audioGranted) {
+            model.refreshLibrary()
+        }
+        audioGranted = currentGranted
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val currentGranted = model.hasPermission || hasLibraryAudioPermission(context)
+        if (currentGranted && !audioGranted) {
+            model.refreshLibrary()
+        }
+        audioGranted = currentGranted
+    }
+
     val songs = model.sortedSongs
     val columns = LocalAuraLayout.current.listColumns
     val pullToRefreshState = rememberPullToRefreshState()
@@ -434,7 +470,7 @@ fun SongsPage(model: AuraViewModel, padding: PaddingValues, requestPermission: (
                 }
             }
         }
-        if (!model.hasPermission) item { PermissionCard(requestPermission) }
+        if (!effectiveHasPermission) item { PermissionCard(requestPermission) }
         else if (model.songs.isEmpty()) item { EmptyState(tr("no_songs", "没有找到歌曲"), tr("check_filters", "请检查音乐权限、文件夹与筛选设置"), tr("rescan", "重新扫描"), { model.refreshLibrary() }) }
         songRows(songs, model, columns)
         }
