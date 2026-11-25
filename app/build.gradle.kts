@@ -42,7 +42,7 @@ android {
         applicationId = "btm.m.auraplayer.for_a12"
         minSdk = 31
         targetSdk = 37
-        versionCode = 1010040
+        versionCode = 1010041
         versionName = "1.0.1 Fix"
         buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
         ndk {
@@ -78,6 +78,11 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+        debug {
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
