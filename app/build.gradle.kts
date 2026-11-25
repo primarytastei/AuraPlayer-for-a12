@@ -39,8 +39,8 @@ android {
         }
     }
     defaultConfig {
-        applicationId = "btm.m.auraplayer"
-        minSdk = 33
+        applicationId = "btm.m.auraplayer.for_a12"
+        minSdk = 31
         targetSdk = 37
         versionCode = 1010040
         versionName = "1.0.1 Fix"
