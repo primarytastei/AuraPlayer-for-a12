@@ -998,7 +998,7 @@ internal fun resolveArtistCounts(
 }
 
 internal fun sanitizeArtworkFileName(name: String, fallback: String): String =
-    name.trim().replace(Regex("[\\/:*?"<>|]"), "_").ifBlank { fallback }
+    name.trim().replace(Regex("[\\\\/:*?\"<>|]"), "_").ifBlank { fallback }
 
 @Composable
 private fun CatalogInfoArtworkCard(
